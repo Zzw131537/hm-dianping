@@ -76,7 +76,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     }
 
     private class VoucherOrderHandler implements Runnable {
-        private String queueName = "stream.order";
+        private String queueName = "stream.orders";
         @Override
         public void run() {
             while(true) {
@@ -107,16 +107,14 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
                 }catch (Exception e) {
                     log.error("处理订单异常",e);
-                    try {
+
                         handlePendingList();
-                    } catch (InterruptedException ex) {
-                        throw new RuntimeException(ex);
-                    }
+
                 }
             }
         }
 
-        private void handlePendingList() throws InterruptedException {
+        private void handlePendingList()  {
             while(true) {
                 try {
                     // 获取PendingList 消息 xreadgroup group g1 c1 count 1 block 2000 streams stream.order 0
