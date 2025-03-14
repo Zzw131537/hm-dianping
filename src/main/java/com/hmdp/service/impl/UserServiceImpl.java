@@ -14,14 +14,19 @@ import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.SystemConstants;
+import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.connection.BitFieldSubCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpSession;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -100,6 +105,81 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //8 返回token
         return Result.ok(token);
     }
+
+
+    @Override
+    public Result sign() {
+
+        // 获取当前用户
+        Long userId = UserHolder.getUser().getId();
+
+        // 获取日期
+        LocalDateTime now = LocalDateTime.now();
+
+
+        // 拼接key
+        String keySuffix = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+        String key ="sign:"+userId+keySuffix;
+
+        // 存value
+        int dayOfMonth = now.getDayOfMonth();
+
+        // 写入redis
+        stringRedisTemplate.opsForValue().setBit(key,dayOfMonth-1,true);
+
+        return Result.ok();
+
+    }
+
+    @Override
+    public Result signCount() {
+        // 获取当前用户
+        Long userId = UserHolder.getUser().getId();
+
+        // 获取日期
+        LocalDateTime now = LocalDateTime.now();
+
+
+        // 拼接key
+        String keySuffix = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+        String key ="sign:"+userId+keySuffix;
+
+        // 存value
+        int dayOfMonth = now.getDayOfMonth();
+
+        // 获取当前记录
+        List<Long> res = stringRedisTemplate.opsForValue().bitField(
+                key,
+                BitFieldSubCommands.create()
+                        .get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth)).valueAt(0)
+        );
+        // 循环遍历
+       if(res == null || res.isEmpty()){
+           return Result.ok(0);
+       }
+
+       Long num= res.get(0);
+       if(num == null || num == 0){
+           return Result.ok(0);
+       }
+        // 进行运算获取最长连续1
+        int cnt=0;
+        while(true){
+
+            if ((num & 1) == 0) {
+                break;
+            }else {
+                cnt++;
+            }
+            num>>>=1;
+        }
+
+
+        return Result.ok(cnt);
+    }
+
 
     private User createUserWithPhone(String phone) {
         // 创建用户
